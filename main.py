@@ -93,6 +93,7 @@ parser.add_argument('--prbsel',nargs=1,type=str,
                              default=['bk1'],
                              #choices=['a','b','c','d','e','f','z'],
                              help='prb of DMS collection')
+parser.add_argument('--resdir',nargs=1,type=str,default=[''],help='path were results for Pareto front reference construction can be found')
 parser.add_argument('--runall',action='store_true',help='run code on all CEC09 problems')
 parser.add_argument('--runall_dms',action='store_true',help='run code on all DMS problems')
 args = parser.parse_args(sys.argv[1:])
@@ -156,21 +157,11 @@ alg = args.alg[0]
 n       = args.nvar[0]
 nint    = args.nint[0]
 ctype   = args.ctype[0]
+resdir  = args.resdir[0]
 
 if args.constrained:
-	solvers = ['DFMOINTcon', 'NSGA2con_1', 'NSGA2con_2', 'NSGA2con_3', 'NSGA2con_4', 'NSGA2con_5', 'NSGA2con_7', \
-				   'NSGA2con_8', 'NSGA2con_9', 'NSGA2con_10']
-	solvers = ['DFMOINTcon', 'NOMADcon', 'NSGA2con_1', 'NSGA2con_2', 'NSGA2con_3', 'NSGA2con_4', \
-		   'NSGA2con_5', 'NSGA2con_7', 'NSGA2con_8', 'NSGA2con_9', 'NSGA2con_10']
-	resdir = '2024-01-28con'
 	ctypes = ['a', 'b', 'c', 'd', 'e', 'f']
 else:
-	solvers = ['DFMOINT', 'NSGA2_1', 'NSGA2_2', 'NSGA2_3', 'NSGA2_4', 'NSGA2_5', 'NSGA2_7', \
-				   'NSGA2_8', 'NSGA2_9', 'NSGA2_10']
-	solvers = ['DFMOINT', 'NOMAD']
-	solvers = ['DFMOINT', 'NOMAD', 'NSGA2_1', 'NSGA2_2', 'NSGA2_3', 'NSGA2_4', 'NSGA2_5', 'NSGA2_7', \
-		   'NSGA2_8', 'NSGA2_9', 'NSGA2_10']
-	resdir = '2024-01-26'
 	ctypes  = ['z']
 
 if args.runall:
@@ -231,6 +222,19 @@ if args.export:
 pop_size = 100
 versione_FORTRAN = False
 
+if resdir == '':
+	print('\nWARNING\n\nParameter <resdir> is empty. Reference Pareto fronts will not be computed')
+else:
+	print('\nReference Pareto fronts will be computed using data in: {}'.format(resdir))
+
+	solvers = []
+	for subdir in os.listdir(resdir):
+		if os.path.isdir(resdir+'\\'+subdir):
+			print(subdir)
+			solvers.append(subdir)
+
+	print(solvers)
+
 for (n,ctype,prob_id,prbsel) in probs:
 
 	probl = problem_factory(prob_id=prob_id,n=n,ctype=ctype,nint=nint,prbsel=prbsel)
@@ -257,10 +261,14 @@ for (n,ctype,prob_id,prbsel) in probs:
 			continue
 
 		# prob_front_ = sio.loadmat("2022-02-03_20000/{}/{}.mat".format(solver_name, probl.prob.name))
-		prob_front_ = sio.loadmat("{}/{}/{}.mat".format(resdir, solver_name, probl.prob.name))
-		npoints, nobj = prob_front_['F'].shape
-		prob_front[s] = np.transpose(prob_front_['F'])
-		print(prob_front[s].shape)
+		try:
+			prob_front_ = sio.loadmat("{}/{}/{}.mat".format(resdir, solver_name, probl.prob.name))
+			npoints, nobj = prob_front_['F'].shape
+			prob_front[s] = np.transpose(prob_front_['F'])
+			print(prob_front[s].shape)
+		except:
+			prob_front[s] = np.empty((probl.prob.q, 0))
+			continue
 
 		if npoints == 0:
 			prob_front[s] = np.reshape(prob_front[s], (probl.prob.q, 0))
